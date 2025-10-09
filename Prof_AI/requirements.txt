@@ -1,0 +1,31 @@
+# Core WebSocket and async dependencies
+websockets
+
+# AI and ML dependencies for chat/audio services
+openai
+groq
+sarvamai
+
+# Document processing (minimal - only if needed for teaching service)
+PyPDF2
+python-docx
+beautifulsoup4
+
+# Data processing
+numpy
+pydantic
+pydantic-settings
+pydantic_core
+
+# Utilities
+python-dotenv
+requests
+aiofiles
+aiohttp
+backoff
+tenacity
+tqdm
+
+# Development and testing
+pytest
+pytest-asyncio

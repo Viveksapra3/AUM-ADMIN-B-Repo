@@ -1300,7 +1300,7 @@ def main():
         import traceback
         traceback.print_exc()
 
-def run_websocket_server_in_thread(host: str = "0.0.0.0", port: int = 8765):
+def run_websocket_server_in_thread(host: str = "0.0.0.0", port: int = 8766):
     """Run WebSocket server in a separate thread for integration with Flask."""
     def run_server():
         asyncio.run(start_websocket_server(host, port))

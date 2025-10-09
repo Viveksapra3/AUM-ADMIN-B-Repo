@@ -29,7 +29,7 @@ async def start_websocket_server_async(host, port):
 def main():
     """Main startup function."""
     websocket_host = os.getenv("WEBSOCKET_HOST", "0.0.0.0")
-    websocket_port = int(os.getenv("WEBSOCKET_PORT", 8765))
+    websocket_port = int(os.getenv("WEBSOCKET_PORT", 8766))
 
     print("=" * 60)
     print("🎓 ProfAI - WebSocket Server Only")

@@ -4,7 +4,8 @@ websockets
 # AI and ML dependencies for chat/audio services
 openai
 groq
-sarvamai
+sarvamai  # Keep for fallback/compatibility
+elevenlabs  # NEW: ElevenLabs Conversational AI
 
 # Document processing (minimal - only if needed for teaching service)
 PyPDF2

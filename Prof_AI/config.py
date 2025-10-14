@@ -9,6 +9,8 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 SARVAM_API_KEY = os.getenv("SARVAM_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 CHROMA_CLOUD_API_KEY = os.getenv("CHROMA_CLOUD_API_KEY")
+ASSEMBLYAI_API_KEY = os.getenv("ASSEMBLYAI_API_KEY")
+DEEPGRAM_API_KEY = os.getenv("DEEPGRAM_API_KEY")
 
 # --- Project Paths ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -48,6 +50,15 @@ OUTPUT_JSON_PATH = os.path.join(COURSES_DIR, "course_output.json")
 
 # --- Audio Settings ---
 SARVAM_TTS_SPEAKER = "anushka"
+
+# --- ElevenLabs Settings ---
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
+ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")  # Default: Rachel
+ELEVENLABS_MODEL = "eleven_flash_v2_5"  # Fast, low-latency model
+ELEVENLABS_AGENT_ID = os.getenv("ELEVENLABS_AGENT_ID")  # For Agents Platform
+
+# Agent greeting message
+AGENT_GREETING = "Hello! I'm Alex from Auburn University at Montgomery. I'm here to help you with information about our programs, admissions, and student life. How can I assist you today?"
 
 # --- Server Configuration ---
 HOST = os.getenv("HOST", "0.0.0.0")

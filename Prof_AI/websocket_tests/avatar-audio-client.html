@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AUM Voice Agent - Avatar Ready</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 900px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 0.9em;
+        }
+
+        .status-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
+
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .status-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .status-label {
+            font-weight: 600;
+            color: #555;
+        }
+
+        .status-value {
+            color: #333;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-indicator.connected {
+            background: #10b981;
+            box-shadow: 0 0 10px #10b981;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.disconnected {
+            background: #ef4444;
+        }
+
+        .status-indicator.listening {
+            background: #3b82f6;
+            box-shadow: 0 0 10px #3b82f6;
+            animation: pulse 1s infinite;
+        }
+
+        .status-indicator.speaking {
+            background: #f59e0b;
+            box-shadow: 0 0 10px #f59e0b;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .language-selector {
+            margin-bottom: 20px;
+        }
+
+        .language-selector label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .language-selector select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1em;
+            background: white;
+            cursor: pointer;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            flex: 1;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-connect {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+        }
+
+        .btn-disconnect {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+        }
+
+        .vad-indicator {
+            background: #1f2937;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .vad-status {
+            font-size: 1.5em;
+            font-weight: 600;
+            color: white;
+            margin-bottom: 10px;
+        }
+
+        .vad-level {
+            width: 100%;
+            height: 30px;
+            background: #374151;
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .vad-level-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #10b981, #3b82f6, #f59e0b);
+            width: 0%;
+            transition: width 0.1s ease;
+        }
+
+        .conversation-history {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+
+        .conversation-history h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 12px;
+            border-radius: 8px;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.agent {
+            background: #e0e7ff;
+            border-left: 4px solid #667eea;
+        }
+
+        .message.user {
+            background: #dbeafe;
+            border-left: 4px solid #3b82f6;
+        }
+
+        .message-label {
+            font-weight: 600;
+            margin-bottom: 5px;
+            font-size: 0.85em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .message.agent .message-label {
+            color: #667eea;
+        }
+
+        .message.user .message-label {
+            color: #3b82f6;
+        }
+
+        .message-text {
+            color: #333;
+            line-height: 1.5;
+        }
+
+        .info-box {
+            background: #dbeafe;
+            border: 2px solid #3b82f6;
+            border-radius: 10px;
+            padding: 15px;
+        }
+
+        .info-box h4 {
+            color: #1e40af;
+            margin-bottom: 10px;
+        }
+
+        .info-box p {
+            color: #1e3a8a;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+
+        .avatar-events {
+            background: #fef3c7;
+            border: 2px solid #f59e0b;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .avatar-events h4 {
+            color: #92400e;
+            margin-bottom: 10px;
+        }
+
+        .avatar-events .event {
+            color: #78350f;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎙️ AUM Voice Agent</h1>
+        <p class="subtitle">Avatar-Ready with Continuous Microphone & VAD</p>
+
+        <!-- Status Card -->
+        <div class="status-card">
+            <div class="status-row">
+                <span class="status-label">Connection:</span>
+                <span class="status-value">
+                    <span class="status-indicator disconnected" id="connectionIndicator"></span>
+                    <span id="connectionStatus">Disconnected</span>
+                </span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">Microphone:</span>
+                <span class="status-value">
+                    <span class="status-indicator" id="micIndicator"></span>
+                    <span id="micStatus">Inactive</span>
+                </span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">Avatar State:</span>
+                <span class="status-value" id="avatarState">Idle</span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">Language:</span>
+                <span class="status-value" id="currentLanguage">English</span>
+            </div>
+        </div>
+
+        <!-- Language Selector -->
+        <div class="language-selector">
+            <label for="languageSelect">🌍 Select Language:</label>
+            <select id="languageSelect">
+                <option value="en">English</option>
+                <option value="es">Spanish (Español)</option>
+                <option value="fr">French (Français)</option>
+                <option value="de">German (Deutsch)</option>
+                <option value="it">Italian (Italiano)</option>
+                <option value="pt">Portuguese (Português)</option>
+                <option value="hi">Hindi (हिन्दी)</option>
+                <option value="zh">Chinese (中文)</option>
+                <option value="ja">Japanese (日本語)</option>
+                <option value="ko">Korean (한국어)</option>
+                <option value="ar">Arabic (العربية)</option>
+            </select>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls">
+            <button class="btn-connect" id="connectBtn" onclick="startVoiceSession()">
+                🎙️ Start Voice Session
+            </button>
+            <button class="btn-disconnect" id="disconnectBtn" onclick="stopVoiceSession()" disabled>
+                🛑 Stop
+            </button>
+        </div>
+
+        <!-- VAD Indicator -->
+        <div class="vad-indicator">
+            <div class="vad-status" id="vadStatus">🎤 Voice Activity Detection: Idle</div>
+            <div class="vad-level">
+                <div class="vad-level-bar" id="vadLevelBar"></div>
+            </div>
+            <div style="margin-top: 10px; text-align: center; font-size: 0.9em; color: #fff;" id="micReadyStatus">
+                <!-- Microphone ready status will appear here -->
+            </div>
+        </div>
+
+        <!-- Avatar Events (for integration) -->
+        <div class="avatar-events">
+            <h4>🎭 Avatar Events (for your integration):</h4>
+            <div id="avatarEvents">
+                <div class="event">Waiting for events...</div>
+            </div>
+        </div>
+
+        <!-- Conversation History -->
+        <div class="conversation-history">
+            <h3>💬 Conversation</h3>
+            <div id="conversationLog">
+                <p style="color: #999; text-align: center;">Click "Start Voice Session" to begin!</p>
+            </div>
+        </div>
+
+        <!-- Info Box -->
+        <div class="info-box">
+            <h4>ℹ️ Avatar Integration Guide:</h4>
+            <p><strong>1.</strong> Listen to <code>avatarEvent</code> custom events</p>
+            <p><strong>2.</strong> <code>user_speaking_start</code> → Avatar listens</p>
+            <p><strong>3.</strong> <code>user_speaking_end</code> → Avatar processes</p>
+            <p><strong>4.</strong> <code>agent_speaking_start</code> → Avatar speaks (lip-sync)</p>
+            <p><strong>5.</strong> <code>agent_speaking_end</code> → Avatar idle</p>
+            <p><strong>6.</strong> Use audio data for lip-sync animation</p>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const SERVER_URL = 'ws://localhost:8766';
+        const VAD_THRESHOLD = 0.015; // Base threshold (dynamic threshold will be used)
+        const VAD_SILENCE_DURATION = 900; // Faster end-of-utterance
+        const MIN_SPEECH_DURATION = 400; // Allow slightly shorter speech
+        const NOISE_GATE = 0.004; // Pick up quieter speech
+        const SP_BUFFER_SIZE = 1024; // Smaller buffer for lower latency (was 4096)
+        const HANGOVER_MS = 200; // Keep speaking state briefly after dips
+        const NOISE_FLOOR_ALPHA = 0.05; // EMA factor for noise floor tracking
+        
+        // State
+        let websocket = null;
+        let audioContext = null;
+        let mediaStream = null;
+        let audioWorkletNode = null;
+        let isConnected = false;
+        let isSpeaking = false;
+        let silenceTimer = null;
+        let audioChunks = [];
+        let speechStartTime = null;
+        let isAgentSpeaking = false; // Track when agent is speaking to mute mic
+        let smoothedRMS = 0; // For smoothing VAD
+        let currentAudioSource = null; // Track current playing audio for interruption
+        let agentUnmuteTimer = null; // Timer for unmuting after agent speaks
+        let noiseFloor = 0.002; // Tracks ambient noise level
+        let lastVoiceTs = 0; // Timestamp of last voice above dynamic threshold
+        let useStreamingSTT = false; // Enable server-side endpointing when available
+        let streamingAudioChunks = []; // Accumulate streamed audio chunks from server
+        // Interruption control
+        let interruptStartTs = null;
+        let agentSpeakStartTs = null;
+        const INTERRUPT_MIN_MS = 220; // require sustained loudness for ~220ms
+        const INTERRUPT_MULT = 1.6;   // multiplier on dynamic threshold during agent speech
+
+        // DOM Elements
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const connectionIndicator = document.getElementById('connectionIndicator');
+        const micStatus = document.getElementById('micStatus');
+        const micIndicator = document.getElementById('micIndicator');
+        const avatarState = document.getElementById('avatarState');
+        const currentLanguage = document.getElementById('currentLanguage');
+        const languageSelect = document.getElementById('languageSelect');
+        const vadStatus = document.getElementById('vadStatus');
+        const vadLevelBar = document.getElementById('vadLevelBar');
+        const conversationLog = document.getElementById('conversationLog');
+        const avatarEvents = document.getElementById('avatarEvents');
+        const micReadyStatus = document.getElementById('micReadyStatus');
+
+        // Update status
+        function updateStatus(connection, mic, avatar) {
+            if (connection !== undefined) {
+                connectionStatus.textContent = connection;
+                connectionIndicator.className = 'status-indicator ' + 
+                    (connection === 'Connected' ? 'connected' : 'disconnected');
+            }
+            if (mic !== undefined) {
+                micStatus.textContent = mic;
+                micIndicator.className = 'status-indicator ' + 
+                    (mic === 'Active' ? 'listening' : mic === 'Speaking' ? 'speaking' : '');
+            }
+            if (avatar !== undefined) {
+                avatarState.textContent = avatar;
+            }
+        }
+
+        // Emit avatar event
+        function emitAvatarEvent(eventType, data = {}) {
+            const event = new CustomEvent('avatarEvent', {
+                detail: { type: eventType, ...data }
+            });
+            window.dispatchEvent(event);
+            
+            // Log event
+            logAvatarEvent(eventType, data);
+        }
+
+        // Log avatar event
+        function logAvatarEvent(eventType, data) {
+            const eventDiv = document.createElement('div');
+            eventDiv.className = 'event';
+            eventDiv.textContent = `${new Date().toLocaleTimeString()}: ${eventType}`;
+            avatarEvents.insertBefore(eventDiv, avatarEvents.firstChild);
+            
+            // Keep only last 5 events
+            while (avatarEvents.children.length > 5) {
+                avatarEvents.removeChild(avatarEvents.lastChild);
+            }
+        }
+
+        // Add message to conversation
+        function addMessage(role, text) {
+            if (conversationLog.children[0]?.textContent.includes('Click "Start Voice Session"')) {
+                conversationLog.innerHTML = '';
+            }
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+            messageDiv.innerHTML = `
+                <div class="message-label">${role === 'agent' ? '🤖 Agent' : '👤 You'}</div>
+                <div class="message-text">${text}</div>
+            `;
+            conversationLog.appendChild(messageDiv);
+            conversationLog.scrollTop = conversationLog.scrollHeight;
+        }
+
+        // Start voice session
+        async function startVoiceSession() {
+            try {
+                connectBtn.disabled = true;
+                connectBtn.textContent = 'Connecting...';
+                
+                const language = languageSelect.value;
+                const languageName = languageSelect.options[languageSelect.selectedIndex].text;
+                
+                // Connect to WebSocket
+                websocket = new WebSocket(SERVER_URL);
+                
+                websocket.onopen = async () => {
+                    updateStatus('Connected', undefined, 'Initializing');
+                    
+                    // Request microphone access
+                    try {
+                        mediaStream = await navigator.mediaDevices.getUserMedia({ 
+                            audio: {
+                                sampleRate: 16000,
+                                channelCount: 1,
+                                echoCancellation: true,
+                                noiseSuppression: true,
+                                autoGainControl: true
+                            } 
+                        });
+                        
+                        currentLanguage.textContent = languageName;
+                        
+                        // Start audio processing with VAD
+                        await startAudioProcessing();
+                        
+                        updateStatus('Connected', 'Active', 'Idle');
+                        connectBtn.textContent = 'Connected ✓';
+                        disconnectBtn.disabled = false;
+                        isConnected = true;
+                        
+                        emitAvatarEvent('session_started', { language });
+
+                        // Request server-side streaming STT (auto lang detection)
+                        try {
+                            websocket.send(JSON.stringify({ type: 'stt_stream_start', language: 'auto' }));
+                        } catch (e) { /* ignore */ }
+                        
+                    } catch (error) {
+                        console.error('Microphone access denied:', error);
+                        alert('Please allow microphone access to use voice features');
+                        websocket.close();
+                    }
+                };
+                
+                websocket.onmessage = async (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        await handleServerMessage(data);
+                    } catch (error) {
+                        console.error('Error parsing message:', error);
+                    }
+                };
+                
+                websocket.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    updateStatus('Error', 'Inactive', 'Error');
+                };
+                
+                websocket.onclose = () => {
+                    updateStatus('Disconnected', 'Inactive', 'Idle');
+                    connectBtn.disabled = false;
+                    connectBtn.textContent = '🎙️ Start Voice Session';
+                    disconnectBtn.disabled = true;
+                    isConnected = false;
+                    
+                    if (mediaStream) {
+                        mediaStream.getTracks().forEach(track => track.stop());
+                    }
+                    
+                    emitAvatarEvent('session_ended');
+                };
+                
+            } catch (error) {
+                console.error('Connection error:', error);
+                alert('Failed to connect: ' + error.message);
+                connectBtn.disabled = false;
+                connectBtn.textContent = '🎙️ Start Voice Session';
+            }
+        }
+
+        // Start audio processing with VAD
+        async function startAudioProcessing() {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+            const source = audioContext.createMediaStreamSource(mediaStream);
+            
+            // Create script processor for VAD
+            const processor = audioContext.createScriptProcessor(SP_BUFFER_SIZE, 1, 1);
+            
+            processor.onaudioprocess = (e) => {
+                if (!isConnected || !websocket || websocket.readyState !== WebSocket.OPEN) return;
+                
+                const inputData = e.inputBuffer.getChannelData(0);
+                
+                // Calculate RMS first (needed for interruption detection)
+                let sum = 0;
+                for (let i = 0; i < inputData.length; i++) {
+                    sum += inputData[i] * inputData[i];
+                }
+                const rms = Math.sqrt(sum / inputData.length);
+                
+                // Apply smoothing
+                smoothedRMS = (rms * 0.3) + (smoothedRMS * 0.7);
+
+                // Update noise floor when not speaking and signal is quiet
+                if (!isSpeaking && smoothedRMS < Math.max(VAD_THRESHOLD, NOISE_GATE * 2)) {
+                    noiseFloor = (1 - NOISE_FLOOR_ALPHA) * noiseFloor + NOISE_FLOOR_ALPHA * smoothedRMS;
+                }
+
+                // Compute dynamic threshold based on ambient noise
+                const dynamicThreshold = Math.max(VAD_THRESHOLD, noiseFloor * 2.5 + NOISE_GATE);
+
+                // Update last voice time if strong signal
+                if (smoothedRMS > dynamicThreshold) {
+                    lastVoiceTs = Date.now();
+                }
+                
+                // INTERRUPTION DETECTION: If agent is speaking but user speaks loudly (sustained)
+                if (isAgentSpeaking) {
+                    const canInterrupt = !agentSpeakStartTs || (performance.now() - agentSpeakStartTs > INTERRUPT_MIN_MS);
+                    const interruptThreshold = Math.max(dynamicThreshold * INTERRUPT_MULT, VAD_THRESHOLD * 2.0);
+                    if (canInterrupt && smoothedRMS > interruptThreshold) {
+                        if (!interruptStartTs) interruptStartTs = performance.now();
+                        if (performance.now() - interruptStartTs > INTERRUPT_MIN_MS) {
+                            console.log('🛑 INTERRUPTION DETECTED!');
+                            // Stop agent's audio immediately
+                            if (currentAudioSource) {
+                                currentAudioSource.stop();
+                                currentAudioSource = null;
+                            }
+                            // Clear unmute timer
+                            if (agentUnmuteTimer) {
+                                clearTimeout(agentUnmuteTimer);
+                                agentUnmuteTimer = null;
+                            }
+                            // Unmute microphone immediately
+                            isAgentSpeaking = false;
+                            agentSpeakStartTs = null;
+                            updateStatus(undefined, 'Active', 'Listening');
+                            emitAvatarEvent('agent_interrupted');
+                            // Visual indicator
+                            micReadyStatus.textContent = '🛑 Interrupted! Listening to you...';
+                            micReadyStatus.style.color = '#ef4444';
+                        }
+                    } else {
+                        interruptStartTs = null;
+                    }
+                }
+                
+                // MUTE MICROPHONE WHILE AGENT IS SPEAKING (prevent echo/feedback)
+                if (isAgentSpeaking) {
+                    return; // Don't process audio while agent is speaking
+                }
+                
+                // RMS already calculated above for interruption detection
+                
+                // Apply noise gate - ignore very quiet sounds
+                if (smoothedRMS < NOISE_GATE) {
+                    vadLevelBar.style.width = '0%';
+                    return;
+                }
+                
+                // Update VAD level indicator
+                const level = Math.min(100, smoothedRMS * 1000);
+                vadLevelBar.style.width = level + '%';
+                
+                // Voice Activity Detection with improved logic (dynamic threshold + hangover)
+                const speakingNow = (smoothedRMS > dynamicThreshold) || (Date.now() - lastVoiceTs < HANGOVER_MS);
+                if (speakingNow) {
+                    // Speech detected
+                    if (!isSpeaking) {
+                        isSpeaking = true;
+                        speechStartTime = Date.now();
+                        vadStatus.textContent = '🎤 Voice Activity Detection: SPEAKING';
+                        updateStatus(undefined, 'Speaking', 'Listening');
+                        emitAvatarEvent('user_speaking_start');
+                        audioChunks = [];
+                    }
+                    
+                    // Clear silence timer
+                    if (silenceTimer) {
+                        clearTimeout(silenceTimer);
+                        silenceTimer = null;
+                    }
+                    
+                    // Collect audio chunk
+                    audioChunks.push(new Float32Array(inputData));
+
+                    // If streaming STT is enabled, send chunk continuously as PCM16
+                    if (useStreamingSTT) {
+                        const pcm16 = new Int16Array(inputData.length);
+                        for (let i = 0; i < inputData.length; i++) {
+                            pcm16[i] = Math.max(-32768, Math.min(32767, inputData[i] * 32768));
+                        }
+                        const audioBase64 = btoa(String.fromCharCode.apply(null, new Uint8Array(pcm16.buffer)));
+                        websocket.send(JSON.stringify({ type: 'stt_audio_chunk', audio: audioBase64 }));
+                    }
+                    
+                } else if (isSpeaking) {
+                    // Silence detected while speaking
+                    if (!silenceTimer) {
+                        silenceTimer = setTimeout(() => {
+                            // Check if speech was long enough
+                            const speechDuration = Date.now() - speechStartTime;
+                            
+                            if (speechDuration < MIN_SPEECH_DURATION) {
+                                // Too short - probably noise, ignore it
+                                console.log('⚠️ Speech too short, ignoring:', speechDuration + 'ms');
+                                isSpeaking = false;
+                                vadStatus.textContent = '🎤 Voice Activity Detection: Idle';
+                                updateStatus(undefined, 'Active', 'Idle');
+                                audioChunks = [];
+                                silenceTimer = null;
+                                return;
+                            }
+                            
+                            // End of speech
+                            isSpeaking = false;
+                            vadStatus.textContent = '🎤 Voice Activity Detection: Idle';
+                            updateStatus(undefined, 'Active', 'Processing');
+                            emitAvatarEvent('user_speaking_end');
+                            
+                            // If streaming STT is not available, fall back to one-shot
+                            if (!useStreamingSTT) {
+                                sendAudioForTranscription();
+                            }
+                            
+                            silenceTimer = null;
+                        }, VAD_SILENCE_DURATION);
+                    }
+                }
+            };
+            
+            source.connect(processor);
+            processor.connect(audioContext.destination);
+        }
+
+        // Send audio for transcription
+        function sendAudioForTranscription() {
+            if (audioChunks.length === 0) return;
+            
+            // Combine all chunks
+            const totalLength = audioChunks.reduce((acc, chunk) => acc + chunk.length, 0);
+            const combined = new Float32Array(totalLength);
+            let offset = 0;
+            for (const chunk of audioChunks) {
+                combined.set(chunk, offset);
+                offset += chunk.length;
+            }
+            
+            // Convert to PCM16
+            const pcm16 = new Int16Array(combined.length);
+            for (let i = 0; i < combined.length; i++) {
+                pcm16[i] = Math.max(-32768, Math.min(32767, combined[i] * 32768));
+            }
+            
+            // Send to server
+            const audioBase64 = btoa(String.fromCharCode.apply(null, new Uint8Array(pcm16.buffer)));
+            websocket.send(JSON.stringify({
+                type: 'audio_transcribe',
+                audio: audioBase64,
+                language: languageSelect.value
+            }));
+            
+            console.log('📤 Sent audio for transcription:', pcm16.length, 'samples');
+        }
+
+        // Handle messages from server
+        async function handleServerMessage(data) {
+            console.log('📨 Received:', data.type);
+            
+            switch (data.type) {
+                case 'connection_ready':
+                    console.log('✅ Connection ready');
+                    break;
+                    
+                case 'user_transcript':
+                    // User's speech transcribed
+                    addMessage('user', data.text);
+                    updateStatus(undefined, 'Active', 'Thinking');
+                    emitAvatarEvent('user_transcript', { text: data.text });
+                    break;
+                    
+                case 'agent_response':
+                    // Agent's text response
+                    addMessage('agent', data.text);
+                    updateStatus(undefined, 'Active', 'Speaking');
+                    emitAvatarEvent('agent_response', { text: data.text });
+                    break;
+                
+                case 'audio_chunk':
+                    // Start agent speaking UI on first chunk
+                    if (streamingAudioChunks.length === 0) {
+                        isAgentSpeaking = true; // MUTE MICROPHONE
+                        agentSpeakStartTs = performance.now();
+                        updateStatus(undefined, 'Active', 'Speaking');
+                        emitAvatarEvent('agent_speaking_start');
+                        micReadyStatus.textContent = '🎧 Agent speaking... (Speak louder to interrupt)';
+                        micReadyStatus.style.color = '#f59e0b';
+                    }
+                    // Accumulate chunk
+                    try {
+                        const bin = atob(data.audio);
+                        const bytes = new Uint8Array(bin.length);
+                        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+                        streamingAudioChunks.push(bytes);
+                    } catch (e) {
+                        console.error('Failed to collect audio_chunk:', e);
+                    }
+                    break;
+
+                case 'audio_end':
+                    // Concatenate and play accumulated chunks
+                    try {
+                        const totalLen = streamingAudioChunks.reduce((acc, arr) => acc + arr.length, 0);
+                        const allBytes = new Uint8Array(totalLen);
+                        let off = 0;
+                        for (const arr of streamingAudioChunks) { allBytes.set(arr, off); off += arr.length; }
+                        streamingAudioChunks = [];
+                        agentSpeakStartTs = null;
+                        // Convert to base64 to reuse playAudio()
+                        const combinedBase64 = bytesToBase64(allBytes);
+                        await playAudio(combinedBase64);
+                    } catch (e) {
+                        console.error('Failed to play streamed audio:', e);
+                    }
+
+                    // Unmute after playback (consistent with non-streaming flow)
+                    agentUnmuteTimer = setTimeout(() => {
+                        if (isAgentSpeaking) {
+                            isAgentSpeaking = false; // UNMUTE MICROPHONE
+                            updateStatus(undefined, 'Active', 'Idle');
+                            emitAvatarEvent('agent_speaking_end');
+                            micReadyStatus.textContent = '✅ Ready - You can speak now!';
+                            micReadyStatus.style.color = '#10b981';
+                            setTimeout(() => { micReadyStatus.textContent = ''; }, 3000);
+                        }
+                        agentUnmuteTimer = null;
+                    }, 200);
+                    break;
+
+                case 'stt_ready':
+                    useStreamingSTT = true;
+                    console.log('✅ Streaming STT ready');
+                    break;
+
+                case 'stt_unavailable':
+                    useStreamingSTT = false;
+                    console.warn('⚠️ Streaming STT unavailable, using fallback VAD + one-shot');
+                    break;
+
+                case 'partial_transcript':
+                    // Optional: show live captions or interim text
+                    updateStatus(undefined, 'Active', 'Thinking');
+                    break;
+
+                case 'final_transcript':
+                    // Treat like user message
+                    addMessage('user', data.text);
+                    updateStatus(undefined, 'Active', 'Thinking');
+                    emitAvatarEvent('user_transcript', { text: data.text });
+                    break;
+                    
+                case 'audio':
+                    // Agent's audio response
+                    isAgentSpeaking = true; // MUTE MICROPHONE
+                    updateStatus(undefined, 'Active', 'Speaking');
+                    emitAvatarEvent('agent_speaking_start');
+                    
+                    // Show status while agent speaks
+                    micReadyStatus.textContent = '🎧 Agent speaking... (Speak louder to interrupt)';
+                    micReadyStatus.style.color = '#f59e0b';
+                    
+                    const audioBase64 = data.audio;
+                    await playAudio(audioBase64);
+                    
+                    // Unmute immediately after audio finishes (reduced from 1000ms to 200ms)
+                    agentUnmuteTimer = setTimeout(() => {
+                        if (isAgentSpeaking) { // Only unmute if not already interrupted
+                            isAgentSpeaking = false; // UNMUTE MICROPHONE
+                            updateStatus(undefined, 'Active', 'Idle');
+                            emitAvatarEvent('agent_speaking_end');
+                            console.log('✅ Microphone unmuted - ready for your input');
+                            
+                            // Show visual indicator
+                            micReadyStatus.textContent = '✅ Ready - You can speak now!';
+                            micReadyStatus.style.color = '#10b981';
+                            setTimeout(() => {
+                                micReadyStatus.textContent = '';
+                            }, 3000); // Clear after 3 seconds
+                        }
+                        agentUnmuteTimer = null;
+                    }, 200); // Wait only 200ms after audio ends (reduced from 1000ms)
+                    break;
+                    
+                case 'pong':
+                    console.log('💓 Pong received');
+                    break;
+                    
+                case 'error':
+                    addMessage('agent', '❌ ' + data.message);
+                    updateStatus(undefined, 'Active', 'Error');
+                    break;
+                    
+                case 'tts_interrupted':
+                    // Server signaled TTS cancelled; drop any buffered audio
+                    streamingAudioChunks = [];
+                    agentSpeakStartTs = null;
+                    break;
+
+                default:
+                    console.log('Unknown message type:', data.type);
+            }
+        }
+
+        // Play audio
+        async function playAudio(audioBase64) {
+            try {
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                
+                // Stop any currently playing audio (in case of rapid responses)
+                if (currentAudioSource) {
+                    currentAudioSource.stop();
+                    currentAudioSource = null;
+                }
+                
+                const audioData = atob(audioBase64);
+                const arrayBuffer = new ArrayBuffer(audioData.length);
+                const view = new Uint8Array(arrayBuffer);
+                for (let i = 0; i < audioData.length; i++) {
+                    view[i] = audioData.charCodeAt(i);
+                }
+                
+                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                const source = audioContext.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(audioContext.destination);
+                
+                // Store reference for interruption
+                currentAudioSource = source;
+                
+                // Clear reference when audio ends naturally
+                source.onended = () => {
+                    if (currentAudioSource === source) {
+                        currentAudioSource = null;
+                    }
+                };
+                
+                source.start(0);
+                
+                // Emit audio data for lip-sync
+                emitAvatarEvent('audio_chunk', { 
+                    audioBuffer: audioBuffer,
+                    duration: audioBuffer.duration 
+                });
+                
+            } catch (error) {
+                console.error('Error playing audio:', error);
+            }
+        }
+
+        // Stop voice session
+        function stopVoiceSession() {
+            // Stop any playing audio
+            if (currentAudioSource) {
+                currentAudioSource.stop();
+                currentAudioSource = null;
+            }
+            
+            // Clear timers
+            if (agentUnmuteTimer) {
+                clearTimeout(agentUnmuteTimer);
+                agentUnmuteTimer = null;
+            }
+            
+            if (websocket) {
+                try { websocket.send(JSON.stringify({ type: 'stt_stream_end' })); } catch (e) {}
+                websocket.send(JSON.stringify({ type: 'disconnect' }));
+                websocket.close();
+                websocket = null;
+            }
+            
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+                mediaStream = null;
+            }
+            
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+            
+            if (silenceTimer) {
+                clearTimeout(silenceTimer);
+                silenceTimer = null;
+            }
+            
+            isConnected = false;
+            isSpeaking = false;
+        }
+
+        // Send ping every 30 seconds
+        setInterval(() => {
+            if (websocket && websocket.readyState === WebSocket.OPEN) {
+                websocket.send(JSON.stringify({ type: 'ping' }));
+            }
+        }, 30000);
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            stopVoiceSession();
+        });
+
+        // Example: Listen to avatar events (for your avatar integration)
+        window.addEventListener('avatarEvent', (e) => {
+            console.log('🎭 Avatar Event:', e.detail);
+            // Your avatar code here:
+            // - e.detail.type === 'user_speaking_start' → Show listening animation
+            // - e.detail.type === 'agent_speaking_start' → Start lip-sync
+            // - e.detail.type === 'audio_chunk' → Use for lip-sync data
+        });
+    </script>
+</body>
+</html>

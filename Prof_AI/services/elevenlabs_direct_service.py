@@ -88,6 +88,50 @@ class ElevenLabsDirectService:
             logging.error(f"❌ STT error: {e}")
             return ""
     
+    def _is_tech_stack_question(self, user_message: str) -> bool:
+        """
+        Check if the user is asking about tech stack, tools, or frameworks.
+        
+        Args:
+            user_message: User's message
+            
+        Returns:
+            True if the message is asking about tech stack/tools/frameworks
+        """
+        # Convert to lowercase for case-insensitive matching
+        message_lower = user_message.lower()
+        
+        # Keywords that indicate tech stack questions
+        tech_keywords = [
+            'tech stack', 'technology stack', 'tech-stack', 'techstack',
+            'framework', 'frameworks', 'tool', 'tools', 'technology', 'technologies',
+            'platform', 'platforms', 'software', 'library', 'libraries',
+            'programming language', 'language', 'languages', 'built with',
+            'using what', 'made with', 'developed with', 'created with',
+            'which technology', 'what technology', 'what tools', 'which tools',
+            'what framework', 'which framework', 'what platform', 'which platform',
+            'how are you built', 'how were you built', 'what are you built on',
+            'how were you developed', 'how are you developed', 'developed',
+            'what powers you', 'backend', 'frontend', 'database', 'api',
+            'openai', 'gpt', 'llm', 'model', 'ai model', 'language model',
+            'elevenlabs', 'websocket', 'python', 'javascript', 'react', 'node'
+        ]
+        
+        # Question patterns that indicate tech stack inquiry
+        question_patterns = [
+            'what', 'which', 'how', 'tell me about', 'can you tell me',
+            'i want to know', 'curious about', 'wondering about'
+        ]
+        
+        # Check if message contains tech keywords
+        has_tech_keyword = any(keyword in message_lower for keyword in tech_keywords)
+        
+        # Check if message has question pattern (optional, but helps with accuracy)
+        has_question_pattern = any(pattern in message_lower for pattern in question_patterns)
+        
+        # Return True if it has tech keywords (question pattern is optional)
+        return has_tech_keyword
+    
     async def get_llm_response(self, user_message: str) -> str:
         """
         Get response from custom fine-tuned LLM.
@@ -99,6 +143,26 @@ class ElevenLabsDirectService:
             LLM response text
         """
         try:
+            # Check if this is a tech stack question
+            if self._is_tech_stack_question(user_message):
+                logging.info(f"🔒 Tech stack question detected, returning standard response")
+                # Add user message to history
+                self.conversation_history.append({
+                    "role": "user",
+                    "content": user_message
+                })
+                
+                # Return the standard response for tech stack questions
+                standard_response = "I am a model build by Aalgorix"
+                
+                # Add to history
+                self.conversation_history.append({
+                    "role": "assistant",
+                    "content": standard_response
+                })
+                
+                return standard_response
+            
             # Add user message to history
             self.conversation_history.append({
                 "role": "user",

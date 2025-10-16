@@ -28,12 +28,14 @@ class DeepgramSTTService:
 
     def __init__(self, sample_rate: int = 16000, language_hint: Optional[str] = None):
         self.sample_rate = sample_rate
-        self.language = language_hint or "en-US"
+        # Default to multilingual code-switching
+        self.language = (language_hint or "multi")
         self.api_key = getattr(config, "DEEPGRAM_API_KEY", None)
         self.ws = None
         self._recv_task: Optional[asyncio.Task] = None
         self._queue: asyncio.Queue = asyncio.Queue()
         self._closed = False
+        self._in_utterance = False
 
     @property
     def enabled(self) -> bool:
@@ -46,38 +48,77 @@ class DeepgramSTTService:
             logger.warning("❌ Deepgram STT disabled: missing DEEPGRAM_API_KEY")
             return False
 
-        # Deepgram Flux v2 WebSocket URL with optimized parameters for turn-taking
-        params = {
-            "encoding": "linear16",
-            "sample_rate": str(self.sample_rate),
-            "model": "flux-general-en",
-            # Optional tuning for turn-taking. Start simple; can expose via config later.
-            # "eot_threshold": "0.8",  # EndOfTurn confidence threshold (0.5-0.9)
-            # "eager_eot_threshold": "0.6",  # EagerEndOfTurn threshold (0.3-0.9)
-        }
-        
-        url = "wss://api.deepgram.com/v2/listen?" + "&".join([f"{k}={v}" for k, v in params.items()])
+        # Build candidate connection parameter sets to try in order
+        candidates = []
+        lang = (self.language or "auto").lower()
+        if lang in ("auto", "multi"):
+            # Prefer Nova-2 multilingual first (more broadly available), then Nova-3
+            candidates.append({"model": "nova-2-general", "language": "multi"})
+            candidates.append({"model": "nova-3-general", "language": "multi"})
+            # Last-resort English Flux (no language param)
+            candidates.append({"model": "flux-general-en"})
+        elif lang in ("en", "en-us"):
+            # English-only: Flux (no language param)
+            candidates.append({"model": "flux-general-en"})
+            # Fallbacks in case Flux is unavailable
+            candidates.append({"model": "nova-3-general", "language": "en"})
+            candidates.append({"model": "nova-2-general", "language": "en"})
+        else:
+            # Specific non-English language: Nova-3 then Nova-2
+            candidates.append({"model": "nova-3-general", "language": lang})
+            candidates.append({"model": "nova-2-general", "language": lang})
+            # Fallback to Flux (English) if others fail
+            candidates.append({"model": "flux-general-en"})
 
-        try:
-            self.ws = await websockets.connect(
-                url,
-                additional_headers={
-                    "Authorization": f"Token {self.api_key}"
-                },
-                ping_interval=20,
-                ping_timeout=10,
-                max_size=16 * 1024 * 1024
-            )
-            
-            logger.info("✅ Connected to Deepgram Real-time STT")
-            
-            # Start background receiver
-            self._recv_task = asyncio.create_task(self._receiver())
-            return True
-            
-        except Exception as e:
-            logger.error(f"❌ Failed to start Deepgram STT: {e}")
-            return False
+        last_error = None
+        for cand in candidates:
+            try_params = {
+                "encoding": "linear16",
+                "sample_rate": str(self.sample_rate),
+                "model": cand["model"],
+            }
+            # Only include language for Nova models; Flux is English-only
+            if not cand["model"].startswith("flux") and "language" in cand:
+                try_params["language"] = cand["language"]
+
+            # Choose WS endpoint per model family
+            if cand["model"].startswith("nova-2"):
+                endpoint = "v1"
+            else:
+                # flux and nova-3 use v2
+                endpoint = "v2"
+            # Add v1-specific query params to improve real-time behavior
+            if endpoint == "v1":
+                try_params["interim_results"] = "true"
+                try_params["channels"] = "1"
+            url = f"wss://api.deepgram.com/{endpoint}/listen?" + "&".join([f"{k}={v}" for k, v in try_params.items()])
+            try:
+                self.ws = await websockets.connect(
+                    url,
+                    additional_headers={
+                        "Authorization": f"Token {self.api_key}"
+                    },
+                    ping_interval=20,
+                    ping_timeout=10,
+                    max_size=16 * 1024 * 1024
+                )
+                logger.info(f"✅ Connected to Deepgram STT (endpoint={endpoint}, model={cand.get('model')}, lang={cand.get('language', 'n/a')})")
+                # Start background receiver
+                self._recv_task = asyncio.create_task(self._receiver())
+                # Update self.language to effective language used
+                if "language" in cand:
+                    self.language = cand["language"]
+                else:
+                    self.language = "en"
+                return True
+            except Exception as e:
+                last_error = e
+                logger.error(f"❌ Failed to start Deepgram STT with {cand}: {e}")
+                continue
+
+        # If we exhausted all candidates
+        logger.error(f"❌ Failed to start Deepgram STT: {last_error}")
+        return False
 
     async def _receiver(self):
         """Receive and process messages from Deepgram WebSocket."""
@@ -142,17 +183,35 @@ class DeepgramSTTService:
             logger.error(f"❌ Deepgram error: {error_msg}")
 
         else:
-            # Back-compat: older v1 style
+            # Back-compat: older v1 style (nova-2 on /v1/listen)
             if message_type == "Results":
                 channel = data.get("channel", {})
                 alternatives = channel.get("alternatives", [])
                 if alternatives:
                     alternative = alternatives[0]
-                    transcript = alternative.get("transcript", "")
-                    is_final = channel.get("is_final", False)
-                    if transcript.strip():
-                        await self._queue.put({"type": "final" if is_final else "partial", "text": transcript, "language": self.language})
+                    transcript = (alternative.get("transcript") or "").strip()
+                    is_final = bool(data.get("is_final") or data.get("speech_final"))
+
+                    if transcript:
+                        # Emit speech_started once per utterance
+                        if not self._in_utterance:
+                            await self._queue.put({"type": "speech_started"})
+                            self._in_utterance = True
+                            logger.debug("🗣️ v1 inferred speech_started")
+
+                        # Emit partial
+                        await self._queue.put({
+                            "type": "final" if is_final else "partial",
+                            "text": transcript,
+                            "language": self.language,
+                        })
                         logger.debug(f"🎤 v1 {('final' if is_final else 'partial')}: '{transcript}'")
+
+                        # If final, emit utterance_end and reset state
+                        if is_final:
+                            await self._queue.put({"type": "utterance_end"})
+                            self._in_utterance = False
+                            logger.debug("🔇 v1 utterance_end")
             else:
                 logger.debug(f"📨 Unknown Deepgram message: {data}")
 

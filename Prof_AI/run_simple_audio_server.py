@@ -11,7 +11,7 @@ import base64
 import websockets
 from websockets.exceptions import ConnectionClosed
 from services.elevenlabs_direct_service import ElevenLabsDirectService
-from services.deepgram_stt_service import DeepgramSTTService as StreamingSTTService
+from services.deepgram_stt_service import DeepgramSTTService
 import config
 
 # Configure logging
@@ -72,7 +72,7 @@ class SimpleAudioServer:
             # Generate and send greeting audio (non-streaming)
             logging.info(f"🎙️ Generating greeting audio...")
             try:
-                audio_data = await service.text_to_speech(greeting)
+                audio_data = await service.text_to_speech(greeting, "en")  # Greeting always in English
                 if audio_data:
                     audio_base64 = base64.b64encode(audio_data).decode('utf-8')
                     try:
@@ -285,17 +285,21 @@ class SimpleAudioServer:
             await websocket.close()
 
         elif message_type == 'stt_stream_start':
-            language = data.get('language', 'auto')
-            sample_rate = int(data.get('sample_rate', 16000))
-            stt = StreamingSTTService(sample_rate=sample_rate, language_hint=None if language == 'auto' else language)
-            if not stt.enabled:
+            # Start streaming STT
+            language = data.get('language', 'multi')
+            sample_rate = int(data.get('sample_rate') or 16000)
+            logging.info(f"🎙️ Starting STT stream for language: {language}, sample_rate: {sample_rate}")
+            
+            # Initialize STT service with language support
+            stt_service = DeepgramSTTService(sample_rate=sample_rate, language_hint=language)
+            if not stt_service.enabled:
                 try:
                     if websocket.close_code is None:
                         await websocket.send(json.dumps({'type': 'stt_unavailable'}))
                 except ConnectionClosed:
                     pass
                 return
-            ok = await stt.start()
+            ok = await stt_service.start()
             if not ok:
                 try:
                     if websocket.close_code is None:
@@ -303,7 +307,7 @@ class SimpleAudioServer:
                 except ConnectionClosed:
                     pass
                 return
-            connection['stt'] = stt
+            connection['stt'] = stt_service
             # Start event pump with VAD and barge-in support
             async def stt_event_pump(client_id_inner: int):
                 conn = self.active_connections.get(client_id_inner)
@@ -317,6 +321,7 @@ class SimpleAudioServer:
                 # Track conversation state for barge-in
                 conn['is_speaking'] = False
                 conn['current_tts_task'] = None
+                conn['detected_language'] = 'en'  # Default to English
                 
                 async for event in stt_service.recv():
                     etype = event.get('type')
@@ -365,8 +370,14 @@ class SimpleAudioServer:
                         logging.info(f"📝 Final transcript: {text}")
                         conn['is_speaking'] = False  # Safety: reset speaking state on final transcript
                         logging.debug(f"🔧 is_speaking reset to: {conn['is_speaking']} (final transcript)")
+                        
+                        # Update detected language
+                        detected_lang = event.get('language', 'en')
+                        conn['detected_language'] = detected_lang
+                        logging.info(f"🌍 Language detected: {detected_lang}")
+                        
                         try:
-                            await ws.send(json.dumps({'type': 'final_transcript', 'text': text, 'language': event.get('language', 'en')}))
+                            await ws.send(json.dumps({'type': 'final_transcript', 'text': text, 'language': detected_lang}))
                         except ConnectionClosed:
                             break
                         
@@ -390,7 +401,9 @@ class SimpleAudioServer:
                                     if conn.get('is_speaking', False):
                                         logging.info("🛑 Skipping TTS: user is speaking")
                                         return
-                                    audio_data = await connection['service'].text_to_speech(llm_response)
+                                    # Use detected language for TTS
+                                    tts_language = conn.get('detected_language', 'en')
+                                    audio_data = await connection['service'].text_to_speech(llm_response, tts_language)
                                     if not audio_data:
                                         return
                                     # If user started speaking during generation, skip sending

@@ -133,15 +133,20 @@ class ElevenLabsDirectService:
             logging.error(f"❌ LLM error: {e}")
             return "I apologize, but I'm having trouble processing your request. Could you please try again?"
     
-    async def text_to_speech_stream(self, text: str) -> AsyncGenerator[bytes, None]:
+    async def text_to_speech_stream(self, text: str, language: str = "en") -> AsyncGenerator[bytes, None]:
         """
-        Convert text to speech and stream audio chunks using a fresh ElevenLabs
-        stream-input WebSocket per request. Falls back to REST TTS on error.
+        Stream TTS audio using ElevenLabs Multi-Context WebSocket.
         """
+        if not text.strip():
+            return
+
+        # Choose model based on language
+        model_id = self._get_model_for_language(language)
+        
         # Use the Multi-Context WebSocket endpoint with explicit output format
         url = (
             f"wss://api.elevenlabs.io/v1/text-to-speech/{self.voice_id}/multi-stream-input"
-            f"?model_id={self.model}&output_format=mp3_44100_128&optimize_streaming_latency=3&auto_mode=true"
+            f"?model_id={model_id}&output_format=mp3_44100_128&optimize_streaming_latency=3&auto_mode=true"
         )
 
         try:
@@ -211,30 +216,41 @@ class ElevenLabsDirectService:
             except Exception as e2:
                 logging.error(f"❌ TTS fallback error: {e2}")
     
-    async def text_to_speech(self, text: str) -> bytes:
+    def _get_model_for_language(self, language: str) -> str:
+        """Choose appropriate ElevenLabs model based on language."""
+        if language in ["auto", "multi"] or language not in ["en", "en-US"]:
+            return "eleven_multilingual_v2"  # Supports 29 languages
+        else:
+            return self.model  # Use configured model (likely eleven_flash_v2_5 for English)
+    
+    async def text_to_speech(self, text: str, language: str = "en") -> bytes:
         """
         Convert text to speech (non-streaming).
         
         Args:
-            text: Text to convert
-            
-        Returns:
-            Complete audio as bytes
+            text: Text to convert to speech
+            language: Language code for TTS model selection
         """
+        if not text.strip():
+            return b""
+        
+        # Choose model based on language
+        model_id = self._get_model_for_language(language)
+        
+        data = {
+            "text": text,
+            "model_id": model_id,
+            "voice_settings": {
+                "stability": 0.5,
+                "similarity_boost": 0.75
+            }
+        }
+        
         url = f"https://api.elevenlabs.io/v1/text-to-speech/{self.voice_id}"
         
         headers = {
             "xi-api-key": self.api_key,
             "Content-Type": "application/json"
-        }
-        
-        data = {
-            "text": text,
-            "model_id": self.model,
-            "voice_settings": {
-                "stability": 0.5,
-                "similarity_boost": 0.75
-            }
         }
         
         try:
